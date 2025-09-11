@@ -169,7 +169,7 @@ export class CETMenuItem extends Disposable implements IMenuItem {
 	}
 
 	setAccelerator(): void {
-		let accelerator = null
+		let accelerator: null | string = null
 
 		if (this.item.role) {
 			switch (this.item.role.toLocaleLowerCase()) {

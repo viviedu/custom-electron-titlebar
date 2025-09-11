@@ -12,6 +12,8 @@ import { TitleBarOptions } from './options'
 import { ThemeBar } from './themebar'
 import { ACTIVE_FOREGROUND, ACTIVE_FOREGROUND_DARK, BOTTOM_TITLEBAR_HEIGHT, DEFAULT_ITEM_SELECTOR, getPx, INACTIVE_FOREGROUND, INACTIVE_FOREGROUND_DARK, loadWindowIcons, menuIcons, TOP_TITLEBAR_HEIGHT_MAC, TOP_TITLEBAR_HEIGHT_WIN } from 'consts'
 
+type IDisposable = { dispose(): void };
+
 export class CustomTitlebar extends ThemeBar {
 	private titlebar: HTMLElement
 	private dragRegion: HTMLElement
@@ -20,6 +22,11 @@ export class CustomTitlebar extends ThemeBar {
 	private title: HTMLElement
 	private controlsContainer: HTMLElement
 	private container: HTMLElement
+	private _wiredIpc = false
+	private _onIpcMax?: (e: Electron.IpcRendererEvent, v: boolean) => void
+	private _onIpcFull?: (e: Electron.IpcRendererEvent, v: boolean) => void
+	private _onIpcFocus?: (e: Electron.IpcRendererEvent, v: boolean) => void
+	private _domDisposables: IDisposable[] = []
 
 	private menuBar?: MenuBar
 
@@ -58,7 +65,7 @@ export class CustomTitlebar extends ThemeBar {
 		},
 		unfocusEffect: true,
 		minWidth: 400,
-		minHeight: 270,
+		minHeight: 270
 	}
 
 	private platformIcons: { [key: string]: string }
@@ -199,7 +206,7 @@ export class CustomTitlebar extends ThemeBar {
 
 		append(this.titlebar, this.menuBarContainer)
 
-		ipcRenderer.send('window-set-minimumSize', this.currentOptions.minWidth, this.currentOptions.minHeight);
+		ipcRenderer.send('window-set-minimumSize', this.currentOptions.minWidth, this.currentOptions.minHeight)
 	}
 
 	private setupTitle() {
@@ -283,9 +290,19 @@ export class CustomTitlebar extends ThemeBar {
 
 		this.onDidChangeMaximized(ipcRenderer.sendSync('window-event', 'window-is-maximized'))
 
-		ipcRenderer.on('window-maximize', (_, isMaximized) => this.onDidChangeMaximized(isMaximized))
-		ipcRenderer.on('window-fullscreen', (_, isFullScreen) => this.onWindowFullScreen(isFullScreen))
-		ipcRenderer.on('window-focus', (_, isFocused) => this.onWindowFocus(isFocused))
+		this.onDidChangeMaximized(ipcRenderer.sendSync('window-event', 'window-is-maximized'))
+
+		if (this._wiredIpc) return
+
+		this._onIpcMax = (_, isMaximized) => this.onDidChangeMaximized(isMaximized)
+		this._onIpcFull = (_, isFullScreen) => this.onWindowFullScreen(isFullScreen)
+		this._onIpcFocus = (_, isFocused) => this.onWindowFocus(isFocused)
+
+		ipcRenderer.on('window-maximize', this._onIpcMax)
+		ipcRenderer.on('window-fullscreen', this._onIpcFull)
+		ipcRenderer.on('window-focus', this._onIpcFocus)
+
+		this._wiredIpc = true
 
 		if (minimizable) {
 			addDisposableListener(this.controls.minimize, EventType.CLICK, () => {
@@ -294,9 +311,11 @@ export class CustomTitlebar extends ThemeBar {
 		}
 
 		if (isMacintosh) {
-			addDisposableListener(this.titlebar, EventType.DBLCLICK, () => {
-				ipcRenderer.send('window-event', 'window-maximize')
-			})
+			this._domDisposables.push(
+				addDisposableListener(this.controls.minimize, EventType.CLICK, () => {
+					ipcRenderer.send('window-event', 'window-minimize')
+				})
+			)
 		}
 
 		if (maximizable) {
@@ -376,37 +395,28 @@ export class CustomTitlebar extends ThemeBar {
 	}
 
 	private updateStyles() {
-		if (this.isInactive) {
-			addClass(this.titlebar, 'inactive')
-		} else {
-			removeClass(this.titlebar, 'inactive')
-		}
+		if (this.isInactive) addClass(this.titlebar, 'inactive'); else removeClass(this.titlebar, 'inactive')
+
+		// --- Normalize backgroundColor to Color instance if a hex string slipped in ---
+		const normalize = (c?: Color | string) => typeof c === 'string' ? Color.fromHex(c) : c
+		const baseBg = normalize(this.currentOptions.backgroundColor)
 
 		const backgroundColor = this.isInactive && this.currentOptions.unfocusEffect
-			? this.currentOptions.backgroundColor?.lighten(0.12)
-			: this.currentOptions.backgroundColor
+			? baseBg?.lighten(0.12)
+			: baseBg
 
-		if (backgroundColor) {
-			this.titlebar.style.backgroundColor = backgroundColor?.toString()
-		}
+		if (backgroundColor) this.titlebar.style.backgroundColor = backgroundColor.toString()
 
 		let foregroundColor: Color
-
 		if (backgroundColor?.isLighter()) {
 			addClass(this.titlebar, 'light')
-
-			foregroundColor = this.isInactive && this.currentOptions.unfocusEffect
-				? INACTIVE_FOREGROUND_DARK
-				: ACTIVE_FOREGROUND_DARK
+			foregroundColor = this.isInactive && this.currentOptions.unfocusEffect ? INACTIVE_FOREGROUND_DARK : ACTIVE_FOREGROUND_DARK
 		} else {
 			removeClass(this.titlebar, 'light')
-
-			foregroundColor = this.isInactive && this.currentOptions.unfocusEffect
-				? INACTIVE_FOREGROUND
-				: ACTIVE_FOREGROUND
+			foregroundColor = this.isInactive && this.currentOptions.unfocusEffect ? INACTIVE_FOREGROUND : ACTIVE_FOREGROUND
 		}
 
-		this.titlebar.style.color = foregroundColor?.toString()
+		this.titlebar.style.color = foregroundColor.toString()
 
 		const updatedWindowControls = ipcRenderer.sendSync('update-window-controls', {
 			color: backgroundColor?.toString(),
@@ -421,29 +431,25 @@ export class CustomTitlebar extends ThemeBar {
 		}
 
 		if (this.menuBar) {
-			let fgColor
-			const backgroundColor = this.currentOptions.menuBarBackgroundColor || this.currentOptions.backgroundColor!.darken(0.12)
+			const mbBg =
+			normalize(this.currentOptions.menuBarBackgroundColor) ||
+			normalize(this.currentOptions.backgroundColor)?.darken(0.12)
 
-			const foregroundColor = backgroundColor?.isLighter()
-				? INACTIVE_FOREGROUND_DARK
-				: INACTIVE_FOREGROUND
+			const mbFg = mbBg?.isLighter() ? INACTIVE_FOREGROUND_DARK : INACTIVE_FOREGROUND
 
-			const bgColor = this.currentOptions.itemBackgroundColor && !this.currentOptions.itemBackgroundColor.equals(backgroundColor)
-				? this.currentOptions.itemBackgroundColor
-				: DEFAULT_ITEM_SELECTOR
+			const itemBgOpt = normalize(this.currentOptions.itemBackgroundColor)
+			const selBg = itemBgOpt && mbBg && !itemBgOpt.equals(mbBg) ? itemBgOpt : DEFAULT_ITEM_SELECTOR
 
-			if (bgColor?.equals(DEFAULT_ITEM_SELECTOR)) {
-				fgColor = backgroundColor?.isLighter() ? ACTIVE_FOREGROUND_DARK : ACTIVE_FOREGROUND
-			} else {
-				fgColor = bgColor?.isLighter() ? ACTIVE_FOREGROUND_DARK : ACTIVE_FOREGROUND
-			}
+			const selFg = selBg?.equals(DEFAULT_ITEM_SELECTOR)
+				? (mbBg?.isLighter() ? ACTIVE_FOREGROUND_DARK : ACTIVE_FOREGROUND)
+				: (selBg?.isLighter() ? ACTIVE_FOREGROUND_DARK : ACTIVE_FOREGROUND)
 
 			this.menuBar.setStyles({
-				backgroundColor,
-				foregroundColor,
-				selectionBackgroundColor: bgColor,
-				selectionForegroundColor: fgColor,
-				separatorColor: this.currentOptions.menuSeparatorColor ?? foregroundColor,
+				backgroundColor: mbBg!,
+				foregroundColor: mbFg!,
+				selectionBackgroundColor: selBg!,
+				selectionForegroundColor: selFg!,
+				separatorColor: this.currentOptions.menuSeparatorColor ?? mbFg!,
 				svgColor: this.currentOptions.svgColor
 			})
 		}
@@ -554,13 +560,12 @@ export class CustomTitlebar extends ThemeBar {
 			removeClass(this.title, 'cet-title-center')
 
 			if (menuPosition !== 'bottom') {
-				addDisposableListener(window, 'resize', () => {
-					if (this.canCenterTitle()) {
-						addClass(this.title, 'cet-title-center')
-					} else {
-						removeClass(this.title, 'cet-title-center')
-					}
-				})
+				this._domDisposables.push(
+					addDisposableListener(window, 'resize', () => {
+						if (this.canCenterTitle()) addClass(this.title, 'cet-title-center')
+						else removeClass(this.title, 'cet-title-center')
+					})
+				)
 				if (this.canCenterTitle()) {
 					addClass(this.title, 'cet-title-center')
 				}
@@ -641,7 +646,23 @@ export class CustomTitlebar extends ThemeBar {
 	 * Remove the titlebar, menubar and all methods.
 	 */
 	public dispose() {
-		// if (this.menuBar) this.menuBar.dispose()
+		// Unhook IPC listeners
+		if (this._wiredIpc) {
+			if (this._onIpcMax) ipcRenderer.off('window-maximize', this._onIpcMax)
+			if (this._onIpcFull) ipcRenderer.off('window-fullscreen', this._onIpcFull)
+			if (this._onIpcFocus) ipcRenderer.off('window-focus', this._onIpcFocus)
+			this._onIpcMax = this._onIpcFull = this._onIpcFocus = undefined
+			this._wiredIpc = false
+		}
+
+		// Unhook DOM disposables
+		for (const d of this._domDisposables) {
+			try { d.dispose() } catch {}
+		}
+		this._domDisposables = []
+		this._domDisposables = []
+
+		if (this.menuBar) this.menuBar.dispose()
 		this.titlebar.remove()
 		while (this.container.firstChild) append(document.body, this.container.firstChild)
 		this.container.remove()

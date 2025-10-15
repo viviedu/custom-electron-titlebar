@@ -97,11 +97,11 @@ export interface TitleBarOptions extends MenuBarOptions {
 	* Controls the Minimum Width the user is allowed to resize the window to.
 	* **The default is 400*
 	*/
-	minWidth: 400;
-	
+	minWidth?: number;
+
 	/**
 	* Controls the Minimum Height the user is allowed to resize the window to.
 	* **The default is 270*
 	*/
-	minHeight: 270;
+	minHeight?: number;
 }

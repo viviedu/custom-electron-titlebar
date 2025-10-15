@@ -43,7 +43,7 @@ export class CustomTitlebar extends ThemeBar {
 		left: HTMLElement
 	}
 
-	private currentOptions: TitleBarOptions = {
+	private defaultOptions: TitleBarOptions = {
 		closeable: true,
 		enableMnemonics: true,
 		// hideWhenClickingClose: false,
@@ -77,7 +77,7 @@ export class CustomTitlebar extends ThemeBar {
 	constructor(options: TitleBarOptions) {
 		super()
 
-		this.currentOptions = { ...this.currentOptions, ...options }
+		this.defaultOptions = { ...this.defaultOptions, ...options }
 
 		const jWindowIcons = (menuIcons as any)[PlatformToString(platform)?.toLocaleLowerCase()]
 		this.platformIcons = jWindowIcons
@@ -120,7 +120,7 @@ export class CustomTitlebar extends ThemeBar {
 	}
 
 	private loadIcons() {
-		const icons = this.currentOptions.icons
+		const icons = this.defaultOptions.icons
 
 		if (icons) {
 			const { platformIcons } = loadWindowIcons(icons)
@@ -133,7 +133,7 @@ export class CustomTitlebar extends ThemeBar {
 	 * By default, it will use the meta theme-color or msapplication-TileColor and if it doesn't exist, it will use white
 	 */
 	private setupBackgroundColor() {
-		let color = this.currentOptions.backgroundColor
+		let color = this.defaultOptions.backgroundColor
 
 		if (!color) {
 			const metaColor = document.querySelectorAll('meta[name="theme-color"]') || document.querySelectorAll('meta[name="msapplication-TileColor"]')
@@ -143,7 +143,7 @@ export class CustomTitlebar extends ThemeBar {
 
 			if (!color) color = Color.WHITE
 
-			this.currentOptions.backgroundColor = color
+			this.defaultOptions.backgroundColor = color
 		}
 
 		this.titlebar.style.backgroundColor = color.toString()
@@ -154,11 +154,11 @@ export class CustomTitlebar extends ThemeBar {
 	 * By default, it will use the first icon found in the head of the document
 	 */
 	private createIcon() {
-		// const onlyRendererMenuBar = this.currentOptions.onlyShowMenuBar
+		// const onlyRendererMenuBar = this.defaultOptions.onlyShowMenuBar
 
 		if (isMacintosh) return
 
-		let icon = this.currentOptions.icon
+		let icon = this.defaultOptions.icon
 
 		if (!icon) {
 			const tagLink = document.querySelectorAll('link')
@@ -167,7 +167,7 @@ export class CustomTitlebar extends ThemeBar {
 					icon = link.getAttribute('href')!
 				}
 
-				this.currentOptions.icon = icon
+				this.defaultOptions.icon = icon
 			})
 		}
 
@@ -180,7 +180,7 @@ export class CustomTitlebar extends ThemeBar {
 				windowIcon.setAttribute('src', icon.toDataURL())
 			}
 
-			this.setIconSize(this.currentOptions.iconSize!)
+			this.setIconSize(this.defaultOptions.iconSize!)
 			append(this.titlebar, this.icon)
 		}
 	}
@@ -195,8 +195,8 @@ export class CustomTitlebar extends ThemeBar {
 	private setupMenubar() {
 		ipcRenderer.invoke('request-application-menu')?.then((menu?: Menu) => this.updateMenu(menu))
 
-		const menuPosition = this.currentOptions.menuPosition
-		const removeMenuBar = this.currentOptions.removeMenuBar
+		const menuPosition = this.defaultOptions.menuPosition
+		const removeMenuBar = this.defaultOptions.removeMenuBar
 
 		if (menuPosition) {
 			this.updateMenuPosition(menuPosition)
@@ -206,16 +206,16 @@ export class CustomTitlebar extends ThemeBar {
 
 		append(this.titlebar, this.menuBarContainer)
 
-		ipcRenderer.send('window-set-minimumSize', this.currentOptions.minWidth, this.currentOptions.minHeight)
+		ipcRenderer.send('window-set-minimumSize', this.defaultOptions.minWidth, this.defaultOptions.minHeight)
 	}
 
 	private setupTitle() {
-		const onlyRendererMenuBar = this.currentOptions.onlyShowMenuBar
+		const onlyRendererMenuBar = this.defaultOptions.onlyShowMenuBar
 
 		if (onlyRendererMenuBar) return
 
 		this.updateTitle(document.title)
-		this.updateTitleAlignment(this.currentOptions.titleHorizontalAlignment!)
+		this.updateTitleAlignment(this.defaultOptions.titleHorizontalAlignment!)
 		append(this.titlebar, this.title)
 	}
 
@@ -232,20 +232,20 @@ export class CustomTitlebar extends ThemeBar {
 	}
 
 	private setupWindowControls() {
-		const onlyRendererMenuBar = this.currentOptions.onlyShowMenuBar
-		const tooltips = this.currentOptions.tooltips!
+		const onlyRendererMenuBar = this.defaultOptions.onlyShowMenuBar
+		const tooltips = this.defaultOptions.tooltips!
 
 		if (isMacintosh || onlyRendererMenuBar) return
 
-		this.createControlButton(this.controls.minimize, this.platformIcons?.minimize, tooltips.minimize!, this.currentOptions.minimizable)
-		this.createControlButton(this.controls.maximize, this.platformIcons?.maximize, tooltips.maximize!, this.currentOptions.maximizable)
-		this.createControlButton(this.controls.close, this.platformIcons?.close, tooltips.close!, this.currentOptions.closeable)
+		this.createControlButton(this.controls.minimize, this.platformIcons?.minimize, tooltips.minimize!, this.defaultOptions.minimizable)
+		this.createControlButton(this.controls.maximize, this.platformIcons?.maximize, tooltips.maximize!, this.defaultOptions.maximizable)
+		this.createControlButton(this.controls.close, this.platformIcons?.close, tooltips.close!, this.defaultOptions.closeable)
 
 		append(this.titlebar, this.controlsContainer)
 	}
 
 	private setupContainer() {
-		const containerOverflow = this.currentOptions.containerOverflow
+		const containerOverflow = this.defaultOptions.containerOverflow
 
 		if (containerOverflow) {
 			this.container.style.overflow = containerOverflow
@@ -259,8 +259,8 @@ export class CustomTitlebar extends ThemeBar {
 	}
 
 	private setupTitleBar() {
-		const order = this.currentOptions.order
-		const hasShadow = this.currentOptions.shadow
+		const order = this.defaultOptions.order
+		const hasShadow = this.defaultOptions.shadow
 
 		addClass(this.titlebar, `cet-${PlatformToString(platform)?.toLocaleLowerCase()}`)
 
@@ -280,13 +280,13 @@ export class CustomTitlebar extends ThemeBar {
 	}
 
 	private loadEvents() {
-		const onlyRendererMenuBar = this.currentOptions.onlyShowMenuBar
+		const onlyRendererMenuBar = this.defaultOptions.onlyShowMenuBar
 
 		if (onlyRendererMenuBar) return
 
-		const minimizable = this.currentOptions.minimizable
-		const maximizable = this.currentOptions.maximizable
-		const closeable = this.currentOptions.closeable
+		const minimizable = this.defaultOptions.minimizable
+		const maximizable = this.defaultOptions.maximizable
+		const closeable = this.defaultOptions.closeable
 
 		this.onDidChangeMaximized(ipcRenderer.sendSync('window-event', 'window-is-maximized'))
 
@@ -370,7 +370,7 @@ export class CustomTitlebar extends ThemeBar {
 		const maximize = this.controls.maximize
 
 		if (maximize) {
-			maximize.title = isMaximized ? this.currentOptions.tooltips?.restoreDown! : this.currentOptions.tooltips?.maximize!
+			maximize.title = isMaximized ? this.defaultOptions.tooltips?.restoreDown! : this.defaultOptions.tooltips?.maximize!
 			maximize.innerHTML = isMaximized ? this.platformIcons?.restore : this.platformIcons?.maximize
 		}
 
@@ -385,7 +385,7 @@ export class CustomTitlebar extends ThemeBar {
 
 		if (this.menuBar) this.menuBar.dispose()
 
-		this.menuBar = new MenuBar(this.menuBarContainer, menuIcons, this.currentOptions, { enableMnemonics: true }, this.closeMenu) // TODO: Verify menubar options
+		this.menuBar = new MenuBar(this.menuBarContainer, menuIcons, this.defaultOptions, { enableMnemonics: true }, this.closeMenu) // TODO: Verify menubar options
 		this.menuBar.push(menu)
 		this.menuBar.update()
 		this.menuBar.onVisibilityChange(e => this.onMenuBarVisibilityChanged(e))
@@ -399,9 +399,9 @@ export class CustomTitlebar extends ThemeBar {
 
 		// --- Normalize backgroundColor to Color instance if a hex string slipped in ---
 		const normalize = (c?: Color | string) => typeof c === 'string' ? Color.fromHex(c) : c
-		const baseBg = normalize(this.currentOptions.backgroundColor)
+		const baseBg = normalize(this.defaultOptions.backgroundColor)
 
-		const backgroundColor = this.isInactive && this.currentOptions.unfocusEffect
+		const backgroundColor = this.isInactive && this.defaultOptions.unfocusEffect
 			? baseBg?.lighten(0.12)
 			: baseBg
 
@@ -410,10 +410,10 @@ export class CustomTitlebar extends ThemeBar {
 		let foregroundColor: Color
 		if (backgroundColor?.isLighter()) {
 			addClass(this.titlebar, 'light')
-			foregroundColor = this.isInactive && this.currentOptions.unfocusEffect ? INACTIVE_FOREGROUND_DARK : ACTIVE_FOREGROUND_DARK
+			foregroundColor = this.isInactive && this.defaultOptions.unfocusEffect ? INACTIVE_FOREGROUND_DARK : ACTIVE_FOREGROUND_DARK
 		} else {
 			removeClass(this.titlebar, 'light')
-			foregroundColor = this.isInactive && this.currentOptions.unfocusEffect ? INACTIVE_FOREGROUND : ACTIVE_FOREGROUND
+			foregroundColor = this.isInactive && this.defaultOptions.unfocusEffect ? INACTIVE_FOREGROUND : ACTIVE_FOREGROUND
 		}
 
 		this.titlebar.style.color = foregroundColor.toString()
@@ -432,12 +432,12 @@ export class CustomTitlebar extends ThemeBar {
 
 		if (this.menuBar) {
 			const mbBg =
-			normalize(this.currentOptions.menuBarBackgroundColor) ||
-			normalize(this.currentOptions.backgroundColor)?.darken(0.12)
+			normalize(this.defaultOptions.menuBarBackgroundColor) ||
+			normalize(this.defaultOptions.backgroundColor)?.darken(0.12)
 
 			const mbFg = mbBg?.isLighter() ? INACTIVE_FOREGROUND_DARK : INACTIVE_FOREGROUND
 
-			const itemBgOpt = normalize(this.currentOptions.itemBackgroundColor)
+			const itemBgOpt = normalize(this.defaultOptions.itemBackgroundColor)
 			const selBg = itemBgOpt && mbBg && !itemBgOpt.equals(mbBg) ? itemBgOpt : DEFAULT_ITEM_SELECTOR
 
 			const selFg = selBg?.equals(DEFAULT_ITEM_SELECTOR)
@@ -449,8 +449,8 @@ export class CustomTitlebar extends ThemeBar {
 				foregroundColor: mbFg!,
 				selectionBackgroundColor: selBg!,
 				selectionForegroundColor: selFg!,
-				separatorColor: this.currentOptions.menuSeparatorColor ?? mbFg!,
-				svgColor: this.currentOptions.svgColor
+				separatorColor: this.defaultOptions.menuSeparatorColor ?? mbFg!,
+				svgColor: this.defaultOptions.svgColor
 			})
 		}
 	}
@@ -486,7 +486,7 @@ export class CustomTitlebar extends ThemeBar {
 	 */
 	public onWindowFullScreen(fullscreen: boolean) {
 		const height = isMacintosh ? TOP_TITLEBAR_HEIGHT_MAC : TOP_TITLEBAR_HEIGHT_WIN
-		const hasShadow = this.currentOptions.shadow
+		const hasShadow = this.defaultOptions.shadow
 
 		if (!isMacintosh) {
 			if (fullscreen) {
@@ -494,7 +494,7 @@ export class CustomTitlebar extends ThemeBar {
 				this.container.style.top = '0px'
 			} else {
 				show(this.titlebar)
-				if (this.currentOptions.menuPosition === 'bottom') {
+				if (this.defaultOptions.menuPosition === 'bottom') {
 					this.container.style.top = getPx(BOTTOM_TITLEBAR_HEIGHT)
 					this.controlsContainer.style.height = getPx(TOP_TITLEBAR_HEIGHT_WIN)
 				} else {
@@ -533,8 +533,8 @@ export class CustomTitlebar extends ThemeBar {
 	 * @param side `left`, `center` or `right`.
 	 */
 	public updateTitleAlignment(side: 'left' | 'center' | 'right') {
-		const order = this.currentOptions.order
-		const menuPosition = this.currentOptions.menuPosition
+		const order = this.defaultOptions.order
+		const menuPosition = this.defaultOptions.menuPosition
 
 		if (side === 'left' || (side === 'right' && order === 'inverted')) {
 			removeClass(this.title, 'cet-title-left')
@@ -587,7 +587,7 @@ export class CustomTitlebar extends ThemeBar {
 	 */
 	public updateBackground(backgroundColor: Color) {
 		if (typeof backgroundColor === 'string') backgroundColor = Color.fromHex(backgroundColor)
-		this.currentOptions.backgroundColor = backgroundColor
+		this.defaultOptions.backgroundColor = backgroundColor
 		this.updateStyles()
 
 		return this
@@ -599,7 +599,7 @@ export class CustomTitlebar extends ThemeBar {
 	 */
 	public updateItemBGColor(itemBGColor: Color) {
 		if (typeof itemBGColor === 'string') itemBGColor = Color.fromHex(itemBGColor)
-		this.currentOptions.itemBackgroundColor = itemBGColor
+		this.defaultOptions.itemBackgroundColor = itemBGColor
 		this.updateStyles()
 
 		return this
@@ -623,10 +623,10 @@ export class CustomTitlebar extends ThemeBar {
 	 */
 	public updateMenuPosition(menuPosition: 'left' | 'bottom') {
 		const height = isMacintosh ? TOP_TITLEBAR_HEIGHT_MAC : TOP_TITLEBAR_HEIGHT_WIN
-		const onlyRendererMenuBar = this.currentOptions.onlyShowMenuBar
-		const hasShadow = this.currentOptions.shadow
+		const onlyRendererMenuBar = this.defaultOptions.onlyShowMenuBar
+		const hasShadow = this.defaultOptions.shadow
 
-		this.currentOptions.menuPosition = menuPosition
+		this.defaultOptions.menuPosition = menuPosition
 
 		if (menuPosition === 'left' || onlyRendererMenuBar) {
 			this.titlebar.style.height = getPx(height + (hasShadow ? 1 : 0))

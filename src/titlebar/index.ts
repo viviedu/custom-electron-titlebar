@@ -22,6 +22,7 @@ export class CustomTitlebar extends ThemeBar {
 	private title: HTMLElement
 	private controlsContainer: HTMLElement
 	private container: HTMLElement
+	private containerExisted: boolean;
 	private _wiredIpc = false
 	private _onIpcMax?: (e: Electron.IpcRendererEvent, v: boolean) => void
 	private _onIpcFull?: (e: Electron.IpcRendererEvent, v: boolean) => void
@@ -88,7 +89,13 @@ export class CustomTitlebar extends ThemeBar {
 		this.menuBarContainer = $('.cet-menubar')
 		this.title = $('.cet-title')
 		this.controlsContainer = $('.cet-window-controls')
-		this.container = $('.cet-container')
+		const existingContainer = document.querySelector('.cet-container');
+		this.containerExisted = !!existingContainer;
+		if (existingContainer instanceof HTMLElement && existingContainer) {
+			this.container = existingContainer;
+		} else {
+			this.container = $('.cet-container')
+		}
 
 		this.controls = {
 			minimize: $('.cet-control-minimize'),
@@ -251,11 +258,14 @@ export class CustomTitlebar extends ThemeBar {
 			this.container.style.overflow = containerOverflow
 		}
 
-		while (document.body.firstChild) {
-			append(this.container, document.body.firstChild)
+		if (this.containerExisted) {
+			removeClass(this.container, 'disposed');
+		} else {
+			while (document.body.firstChild) {
+				append(this.container, document.body.firstChild)
+			}
+			append(document.body, this.container)
 		}
-
-		append(document.body, this.container)
 	}
 
 	private setupTitleBar() {
@@ -664,8 +674,7 @@ export class CustomTitlebar extends ThemeBar {
 
 		if (this.menuBar) this.menuBar.dispose()
 		this.titlebar.remove()
-		while (this.container.firstChild) append(document.body, this.container.firstChild)
-		this.container.remove()
+		addClass(this.container, 'disposed');
 	}
 
 	public get titlebarElement() {

@@ -24,6 +24,8 @@ export const WINDOW_MIN_HEIGHT = 270
 export const MENU_MNEMONIC_REGEX = /\(&([^\s&])\)|(^|[^&])&([^\s&])/
 export const MENU_ESCAPED_MNEMONIC_REGEX = /(&amp;)?(&amp;)([^\s&])/g
 
+export const DISPOSED_CONTAINER_CLASS = 'disposed'
+
 interface ITitlebarIcons extends IMenuIcons {
 	linux: {
 		minimize: string

@@ -206,6 +206,10 @@ body {
   z-index: 1;
 }
 
+.cet-container.disposed {
+  display: contents;
+}
+
 /* MenuBar */
 .cet-menubar {
   display: flex;

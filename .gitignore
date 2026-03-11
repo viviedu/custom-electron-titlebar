@@ -186,7 +186,6 @@ typings/
 
 # Nuxt.js build / generate output
 .nuxt
-dist
 build/
 *.map
 index.js
